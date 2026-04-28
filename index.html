@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>PVT任務</title>
+<style>
+body {
+  font-family: Arial, "Microsoft JhengHei";
+  text-align: center;
+  background: #f5f5f5;
+}
+#box {
+  width: 250px;
+  height: 250px;
+  margin: 100px auto;
+  background: red;
+  border-radius: 20px;
+  color: white;
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+button {
+  font-size: 20px;
+  padding: 10px 20px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>PVT任務</h2>
+
+<p>看到藍色後立即點擊</p>
+
+<label>時間（分鐘）：</label>
+<input id="time" value="15" type="number">
+<br><br>
+
+<button onclick="start()">開始</button>
+
+<div id="box">等待</div>
+
+<script>
+
+let startTime, stimTime;
+let running = false;
+
+function start(){
+  running = true;
+  let duration = document.getElementById("time").value * 60000;
+  startTime = performance.now();
+  nextTrial(duration);
+}
+
+function nextTrial(duration){
+
+  if(performance.now() - startTime > duration){
+    alert("結束");
+    return;
+  }
+
+  let wait = Math.random()*8000 + 2000;
+
+  document.getElementById("box").style.background = "red";
+  document.getElementById("box").innerHTML = "等待";
+
+  setTimeout(()=>{
+    stimTime = performance.now();
+    document.getElementById("box").style.background = "blue";
+    document.getElementById("box").innerHTML = "點我";
+  }, wait);
+}
+
+document.addEventListener("click", ()=>{
+  if(!running) return;
+
+  let rt = performance.now() - stimTime;
+
+  console.log("RT:", Math.round(rt));
+
+  nextTrial();
+});
+
+</script>
+
+</body>
+</html>
