@@ -25,7 +25,7 @@ body {
 #box {
   width: 260px;
   height: 260px;
-  margin: 80px auto;
+  margin: 70px auto;
   background: #c93434;
   border-radius: 20px;
   color: white;
@@ -47,6 +47,13 @@ input {
   font-size: 18px;
   padding: 6px;
   width: 120px;
+}
+
+#countdown {
+  font-size: 28px;
+  font-weight: bold;
+  margin-top: 20px;
+  color: #333;
 }
 
 #summary {
@@ -77,6 +84,8 @@ input {
 
 <button id="startBtn" onclick="startTask()">開始任務</button>
 
+<div id="countdown">剩餘時間：15:00</div>
+
 <div id="box">等待開始</div>
 
 <p id="status"></p>
@@ -97,6 +106,7 @@ let stimTime = null;
 let waitingForStimulus = false;
 
 let timeoutId = null;
+let countdownTimer = null;
 
 const MIN_WAIT_MS = 2000;
 const MAX_WAIT_MS = 10000;
@@ -117,7 +127,24 @@ function startTask() {
   document.getElementById("startBtn").style.display = "none";
   document.getElementById("summary").innerHTML = "";
 
+  startCountdown();
   nextTrial();
+}
+
+function startCountdown() {
+  countdownTimer = setInterval(() => {
+    const elapsed = performance.now() - taskStartTime;
+    const remaining = Math.max(0, taskDuration - elapsed);
+
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+
+    document.getElementById("countdown").innerHTML =
+      "剩餘時間：" +
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(seconds).padStart(2, "0");
+  }, 500);
 }
 
 function nextTrial() {
@@ -139,8 +166,7 @@ function nextTrial() {
   box.style.background = "#c93434";
   box.innerHTML = "等待";
 
-  document.getElementById("status").innerHTML =
-    "剩餘時間：約 " + Math.ceil((taskDuration - elapsed) / 1000) + " 秒";
+  document.getElementById("status").innerHTML = "請等待刺激出現";
 
   timeoutId = setTimeout(() => {
     stimTime = performance.now();
@@ -148,6 +174,7 @@ function nextTrial() {
 
     box.style.background = "#2d6cdf";
     box.innerHTML = "點擊";
+    document.getElementById("status").innerHTML = "請立即點擊";
   }, randomWait());
 }
 
@@ -157,7 +184,6 @@ function handleResponse() {
   const now = performance.now();
   const subjectId = document.getElementById("subjectId").value;
 
-  // 提前點擊
   if (waitingForStimulus) {
     clearTimeout(timeoutId);
 
@@ -176,11 +202,12 @@ function handleResponse() {
     box.style.background = "#444";
     box.innerHTML = "太早";
 
+    document.getElementById("status").innerHTML = "過早點擊";
+
     setTimeout(nextTrial, 1000);
     return;
   }
 
-  // 正常反應
   if (stimTime !== null) {
     const rt = Math.round(now - stimTime);
     const waitMs = Math.round(stimTime - waitStartTime);
@@ -201,6 +228,8 @@ function handleResponse() {
     box.style.background = "#333";
     box.innerHTML = rt + " ms";
 
+    document.getElementById("status").innerHTML = "反應時間：" + rt + " ms";
+
     stimTime = null;
     setTimeout(nextTrial, 1000);
   }
@@ -216,6 +245,7 @@ document.addEventListener("touchstart", function(e) {
 function finishTask() {
   running = false;
   clearTimeout(timeoutId);
+  clearInterval(countdownTimer);
 
   const valid = data.filter(d => d.response_type === "valid");
   const falseStarts = data.filter(d => d.response_type === "false_start").length;
@@ -234,6 +264,7 @@ function finishTask() {
   document.getElementById("box").style.background = "#222";
   document.getElementById("box").innerHTML = "完成";
 
+  document.getElementById("countdown").innerHTML = "剩餘時間：00:00";
   document.getElementById("status").innerHTML = "";
 
   document.getElementById("summary").innerHTML =
