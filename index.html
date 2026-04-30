@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PVT-B 疲勞誘發任務</title>
+<title>PVT-B 任務</title>
 
 <style>
 body {
@@ -19,7 +19,7 @@ body {
   padding: 30px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 #box {
@@ -56,9 +56,19 @@ input {
   color: #333;
 }
 
+#status {
+  font-size: 20px;
+  min-height: 32px;
+}
+
 #summary {
   font-size: 20px;
   line-height: 1.8;
+}
+
+#hint {
+  color: #666;
+  font-size: 16px;
 }
 </style>
 </head>
@@ -66,37 +76,40 @@ input {
 <body>
 
 <div id="container">
+  <h2>PVT-B 反應時間任務</h2>
 
-<h2>PVT-B 疲勞誘發任務</h2>
+  <p>等待藍色刺激出現後，盡快點擊畫面或觸碰螢幕。</p>
+  <p>任務進行中可按 <strong>P</strong> 暫停或繼續。</p>
 
-<p>看到藍色方塊後，請立即點擊螢幕。</p>
-<p>請不要提前點擊。</p>
+  <label for="subjectId">受試者編號</label>
+  <input id="subjectId" value="S01" type="text">
 
-<label>受試者編號：</label>
-<input id="subjectId" value="S01" type="text">
+  <br><br>
 
-<br><br>
+  <label for="time">任務時間（分鐘）</label>
+  <input id="time" value="15" type="number" min="1">
 
-<label>時間（分鐘）：</label>
-<input id="time" value="15" type="number">
+  <br><br>
 
-<br><br>
+  <button id="startBtn" onclick="startTask()">開始任務</button>
+  <button id="pauseBtn" onclick="togglePause()" disabled>暫停</button>
 
-<button id="startBtn" onclick="startTask()">開始任務</button>
+  <div id="countdown">剩餘時間：15:00</div>
 
-<div id="countdown">剩餘時間：15:00</div>
+  <div id="box">等待開始</div>
 
-<div id="box">等待開始</div>
-
-<p id="status"></p>
-<div id="summary"></div>
-
+  <p id="status"></p>
+  <p id="hint">滑鼠點擊、觸控，或按空白鍵都可回應刺激。</p>
+  <div id="summary"></div>
 </div>
 
 <script>
 let running = false;
+let paused = false;
 let taskStartTime = 0;
 let taskDuration = 0;
+let pausedTotalMs = 0;
+let pauseStartedAt = 0;
 
 let trial = 0;
 let data = [];
@@ -106,86 +119,152 @@ let stimTime = null;
 let waitingForStimulus = false;
 
 let timeoutId = null;
+let timeoutStartedAt = 0;
+let timeoutDurationMs = 0;
+let timeoutRemainingMs = 0;
+let timeoutCallback = null;
 let countdownTimer = null;
 
 const MIN_WAIT_MS = 2000;
 const MAX_WAIT_MS = 10000;
+const FEEDBACK_MS = 1000;
 const LAPSE_THRESHOLD_MS = 500;
 
 function randomWait() {
   return Math.floor(Math.random() * (MAX_WAIT_MS - MIN_WAIT_MS + 1)) + MIN_WAIT_MS;
 }
 
+function setManagedTimeout(callback, durationMs) {
+  clearManagedTimeout();
+  timeoutCallback = callback;
+  timeoutDurationMs = durationMs;
+  timeoutRemainingMs = durationMs;
+  timeoutStartedAt = performance.now();
+  timeoutId = setTimeout(() => {
+    clearManagedTimeout();
+    callback();
+  }, durationMs);
+}
+
+function clearManagedTimeout() {
+  if (timeoutId !== null) {
+    clearTimeout(timeoutId);
+  }
+  timeoutId = null;
+  timeoutStartedAt = 0;
+  timeoutDurationMs = 0;
+  timeoutRemainingMs = 0;
+  timeoutCallback = null;
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+}
+
+function elapsedTaskMs() {
+  if (!running) return 0;
+  const now = paused ? pauseStartedAt : performance.now();
+  return now - taskStartTime - pausedTotalMs;
+}
+
+function remainingTaskMs() {
+  return Math.max(0, taskDuration - elapsedTaskMs());
+}
+
+function updateCountdown() {
+  document.getElementById("countdown").textContent = "剩餘時間：" + formatDuration(remainingTaskMs());
+}
+
 function startTask() {
+  const minutes = Number(document.getElementById("time").value);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    alert("請輸入大於 0 的分鐘數。");
+    return;
+  }
+
   running = true;
+  paused = false;
+  pausedTotalMs = 0;
+  pauseStartedAt = 0;
   trial = 0;
   data = [];
+  waitStartTime = null;
+  stimTime = null;
+  waitingForStimulus = false;
 
-  taskDuration = Number(document.getElementById("time").value) * 60 * 1000;
+  taskDuration = minutes * 60 * 1000;
   taskStartTime = performance.now();
 
   document.getElementById("startBtn").style.display = "none";
+  document.getElementById("pauseBtn").disabled = false;
+  document.getElementById("pauseBtn").textContent = "暫停";
   document.getElementById("summary").innerHTML = "";
+  document.getElementById("status").textContent = "";
 
+  updateCountdown();
   startCountdown();
   nextTrial();
 }
 
 function startCountdown() {
+  if (countdownTimer !== null) {
+    clearInterval(countdownTimer);
+  }
+
   countdownTimer = setInterval(() => {
-    const elapsed = performance.now() - taskStartTime;
-    const remaining = Math.max(0, taskDuration - elapsed);
-
-    const minutes = Math.floor(remaining / 60000);
-    const seconds = Math.floor((remaining % 60000) / 1000);
-
-    document.getElementById("countdown").innerHTML =
-      "剩餘時間：" +
-      String(minutes).padStart(2, "0") +
-      ":" +
-      String(seconds).padStart(2, "0");
-  }, 500);
+    updateCountdown();
+    if (running && !paused && remainingTaskMs() <= 0) {
+      finishTask();
+    }
+  }, 250);
 }
 
 function nextTrial() {
-  if (!running) return;
+  if (!running || paused) return;
 
-  const elapsed = performance.now() - taskStartTime;
-
-  if (elapsed >= taskDuration) {
+  if (remainingTaskMs() <= 0) {
     finishTask();
     return;
   }
 
-  trial++;
+  trial += 1;
   stimTime = null;
   waitingForStimulus = true;
   waitStartTime = performance.now();
 
   const box = document.getElementById("box");
   box.style.background = "#c93434";
-  box.innerHTML = "等待";
+  box.textContent = "等待中";
+  document.getElementById("status").textContent = "請等待刺激出現";
 
-  document.getElementById("status").innerHTML = "請等待刺激出現";
+  setManagedTimeout(() => {
+    if (!running || paused) return;
 
-  timeoutId = setTimeout(() => {
     stimTime = performance.now();
     waitingForStimulus = false;
-
     box.style.background = "#2d6cdf";
-    box.innerHTML = "點擊";
-    document.getElementById("status").innerHTML = "請立即點擊";
+    box.textContent = "現在點擊";
+    document.getElementById("status").textContent = "請立刻反應";
   }, randomWait());
 }
 
+function scheduleNextTrial(delayMs) {
+  setManagedTimeout(() => {
+    nextTrial();
+  }, delayMs);
+}
+
 function handleResponse() {
-  if (!running) return;
+  if (!running || paused) return;
 
   const now = performance.now();
-  const subjectId = document.getElementById("subjectId").value;
+  const subjectId = document.getElementById("subjectId").value || "subject";
 
   if (waitingForStimulus) {
-    clearTimeout(timeoutId);
+    clearManagedTimeout();
 
     data.push({
       subject_id: subjectId,
@@ -200,11 +279,10 @@ function handleResponse() {
 
     const box = document.getElementById("box");
     box.style.background = "#444";
-    box.innerHTML = "太早";
+    box.textContent = "太早了";
+    document.getElementById("status").textContent = "這次屬於過早反應";
 
-    document.getElementById("status").innerHTML = "過早點擊";
-
-    setTimeout(nextTrial, 1000);
+    scheduleNextTrial(FEEDBACK_MS);
     return;
   }
 
@@ -226,53 +304,80 @@ function handleResponse() {
 
     const box = document.getElementById("box");
     box.style.background = "#333";
-    box.innerHTML = rt + " ms";
-
-    document.getElementById("status").innerHTML = "反應時間：" + rt + " ms";
+    box.textContent = rt + " ms";
+    document.getElementById("status").textContent = "反應時間：" + rt + " ms";
 
     stimTime = null;
-    setTimeout(nextTrial, 1000);
+    scheduleNextTrial(FEEDBACK_MS);
   }
 }
 
-document.addEventListener("click", handleResponse);
+function togglePause() {
+  if (!running) return;
 
-document.addEventListener("touchstart", function(e) {
-  e.preventDefault();
-  handleResponse();
-}, { passive: false });
+  const pauseBtn = document.getElementById("pauseBtn");
+  const box = document.getElementById("box");
+
+  if (!paused) {
+    paused = true;
+    pauseStartedAt = performance.now();
+
+    if (timeoutId !== null) {
+      const elapsed = performance.now() - timeoutStartedAt;
+      timeoutRemainingMs = Math.max(0, timeoutDurationMs - elapsed);
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+
+    box.style.background = "#666";
+    box.textContent = "已暫停";
+    document.getElementById("status").textContent = "按 P 或按鈕繼續";
+    pauseBtn.textContent = "繼續";
+    return;
+  }
+
+  paused = false;
+  pausedTotalMs += performance.now() - pauseStartedAt;
+  pauseStartedAt = 0;
+  pauseBtn.textContent = "暫停";
+
+  if (timeoutCallback && timeoutRemainingMs > 0) {
+    const resumeCallback = timeoutCallback;
+    const remainingMs = timeoutRemainingMs;
+    timeoutId = setTimeout(() => {
+      clearManagedTimeout();
+      resumeCallback();
+    }, remainingMs);
+    timeoutStartedAt = performance.now();
+    timeoutDurationMs = remainingMs;
+  } else if (stimTime !== null) {
+    box.style.background = "#2d6cdf";
+    box.textContent = "現在點擊";
+    document.getElementById("status").textContent = "請立刻反應";
+  } else {
+    box.style.background = "#c93434";
+    box.textContent = "等待中";
+    document.getElementById("status").textContent = "請等待刺激出現";
+  }
+}
 
 function finishTask() {
   running = false;
-  clearTimeout(timeoutId);
-  clearInterval(countdownTimer);
+  paused = false;
+  clearManagedTimeout();
 
-  const valid = data.filter(d => d.response_type === "valid");
-  const falseStarts = data.filter(d => d.response_type === "false_start").length;
-  const lapses = valid.filter(d => d.lapse === 1).length;
-
-  const meanRT = valid.length
-    ? Math.round(valid.reduce((sum, d) => sum + d.rt_ms, 0) / valid.length)
-    : 0;
-
-  const totalTrials = data.length;
-  const correctTrials = data.filter(d => d.correct === 1).length;
-  const accuracy = totalTrials
-    ? Math.round((correctTrials / totalTrials) * 1000) / 10
-    : 0;
+  if (countdownTimer !== null) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
 
   document.getElementById("box").style.background = "#222";
-  document.getElementById("box").innerHTML = "完成";
-
-  document.getElementById("countdown").innerHTML = "剩餘時間：00:00";
-  document.getElementById("status").innerHTML = "";
+  document.getElementById("box").textContent = "已完成";
+  document.getElementById("countdown").textContent = "剩餘時間：00:00";
+  document.getElementById("status").textContent = "";
+  document.getElementById("pauseBtn").disabled = true;
 
   document.getElementById("summary").innerHTML =
-    "任務完成<br>" +
-    "正確率：" + accuracy + "%<br>" +
-    "平均反應時間：" + meanRT + " ms<br>" +
-    "Lapse 次數（RT ≥ 500 ms）：" + lapses + "<br>" +
-    "過早點擊次數：" + falseStarts + "<br><br>" +
     "<button onclick='downloadCSV()'>下載 CSV</button>";
 }
 
@@ -296,7 +401,6 @@ function downloadCSV() {
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-
   const subjectId = document.getElementById("subjectId").value || "subject";
 
   const a = document.createElement("a");
@@ -306,6 +410,32 @@ function downloadCSV() {
 
   URL.revokeObjectURL(url);
 }
+
+document.addEventListener("click", function(event) {
+  if (event.target.tagName === "BUTTON") return;
+  handleResponse();
+});
+
+document.addEventListener("touchstart", function(event) {
+  if (event.target.tagName === "BUTTON") return;
+  event.preventDefault();
+  handleResponse();
+}, { passive: false });
+
+document.addEventListener("keydown", function(event) {
+  if (event.key === "p" || event.key === "P") {
+    event.preventDefault();
+    togglePause();
+    return;
+  }
+
+  if (event.code === "Space") {
+    event.preventDefault();
+    handleResponse();
+  }
+});
+
+updateCountdown();
 </script>
 
 </body>
