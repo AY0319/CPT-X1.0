@@ -2,87 +2,279 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>PVT任務</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PVT-B 疲勞誘發任務</title>
+
 <style>
 body {
-  font-family: Arial, "Microsoft JhengHei";
+  font-family: Arial, "Microsoft JhengHei", sans-serif;
   text-align: center;
   background: #f5f5f5;
+  margin: 0;
 }
+
+#container {
+  max-width: 850px;
+  margin: 40px auto;
+  padding: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
 #box {
-  width: 250px;
-  height: 250px;
-  margin: 100px auto;
-  background: red;
+  width: 260px;
+  height: 260px;
+  margin: 80px auto;
+  background: #c93434;
   border-radius: 20px;
   color: white;
-  font-size: 40px;
+  font-size: 42px;
+  font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
 }
+
 button {
   font-size: 20px;
-  padding: 10px 20px;
+  padding: 10px 24px;
+  margin: 8px;
+}
+
+input {
+  font-size: 18px;
+  padding: 6px;
+  width: 120px;
+}
+
+#summary {
+  font-size: 20px;
+  line-height: 1.8;
 }
 </style>
 </head>
 
 <body>
 
-<h2>PVT任務</h2>
+<div id="container">
 
-<p>看到藍色後立即點擊</p>
+<h2>PVT-B 疲勞誘發任務</h2>
+
+<p>看到藍色方塊後，請立即點擊螢幕。</p>
+<p>請不要提前點擊。</p>
+
+<label>受試者編號：</label>
+<input id="subjectId" value="S01" type="text">
+
+<br><br>
 
 <label>時間（分鐘）：</label>
 <input id="time" value="15" type="number">
+
 <br><br>
 
-<button onclick="start()">開始</button>
+<button id="startBtn" onclick="startTask()">開始任務</button>
 
-<div id="box">等待</div>
+<div id="box">等待開始</div>
+
+<p id="status"></p>
+<div id="summary"></div>
+
+</div>
 
 <script>
-
-let startTime, stimTime;
 let running = false;
+let taskStartTime = 0;
+let taskDuration = 0;
 
-function start(){
-  running = true;
-  let duration = document.getElementById("time").value * 60000;
-  startTime = performance.now();
-  nextTrial(duration);
+let trial = 0;
+let data = [];
+
+let waitStartTime = null;
+let stimTime = null;
+let waitingForStimulus = false;
+
+let timeoutId = null;
+
+const MIN_WAIT_MS = 2000;
+const MAX_WAIT_MS = 10000;
+const LAPSE_THRESHOLD_MS = 500;
+
+function randomWait() {
+  return Math.floor(Math.random() * (MAX_WAIT_MS - MIN_WAIT_MS + 1)) + MIN_WAIT_MS;
 }
 
-function nextTrial(duration){
+function startTask() {
+  running = true;
+  trial = 0;
+  data = [];
 
-  if(performance.now() - startTime > duration){
-    alert("結束");
+  taskDuration = Number(document.getElementById("time").value) * 60 * 1000;
+  taskStartTime = performance.now();
+
+  document.getElementById("startBtn").style.display = "none";
+  document.getElementById("summary").innerHTML = "";
+
+  nextTrial();
+}
+
+function nextTrial() {
+  if (!running) return;
+
+  const elapsed = performance.now() - taskStartTime;
+
+  if (elapsed >= taskDuration) {
+    finishTask();
     return;
   }
 
-  let wait = Math.random()*8000 + 2000;
+  trial++;
+  stimTime = null;
+  waitingForStimulus = true;
+  waitStartTime = performance.now();
 
-  document.getElementById("box").style.background = "red";
-  document.getElementById("box").innerHTML = "等待";
+  const box = document.getElementById("box");
+  box.style.background = "#c93434";
+  box.innerHTML = "等待";
 
-  setTimeout(()=>{
+  document.getElementById("status").innerHTML =
+    "剩餘時間：約 " + Math.ceil((taskDuration - elapsed) / 1000) + " 秒";
+
+  timeoutId = setTimeout(() => {
     stimTime = performance.now();
-    document.getElementById("box").style.background = "blue";
-    document.getElementById("box").innerHTML = "點我";
-  }, wait);
+    waitingForStimulus = false;
+
+    box.style.background = "#2d6cdf";
+    box.innerHTML = "點擊";
+  }, randomWait());
 }
 
-document.addEventListener("click", ()=>{
-  if(!running) return;
+function handleResponse() {
+  if (!running) return;
 
-  let rt = performance.now() - stimTime;
+  const now = performance.now();
+  const subjectId = document.getElementById("subjectId").value;
 
-  console.log("RT:", Math.round(rt));
+  // 提前點擊
+  if (waitingForStimulus) {
+    clearTimeout(timeoutId);
 
-  nextTrial();
-});
+    data.push({
+      subject_id: subjectId,
+      trial: trial,
+      wait_ms: "",
+      rt_ms: "",
+      response_type: "false_start",
+      correct: 0,
+      lapse: 0,
+      timestamp_ms: Math.round(now)
+    });
 
+    const box = document.getElementById("box");
+    box.style.background = "#444";
+    box.innerHTML = "太早";
+
+    setTimeout(nextTrial, 1000);
+    return;
+  }
+
+  // 正常反應
+  if (stimTime !== null) {
+    const rt = Math.round(now - stimTime);
+    const waitMs = Math.round(stimTime - waitStartTime);
+    const lapse = rt >= LAPSE_THRESHOLD_MS ? 1 : 0;
+
+    data.push({
+      subject_id: subjectId,
+      trial: trial,
+      wait_ms: waitMs,
+      rt_ms: rt,
+      response_type: "valid",
+      correct: 1,
+      lapse: lapse,
+      timestamp_ms: Math.round(stimTime)
+    });
+
+    const box = document.getElementById("box");
+    box.style.background = "#333";
+    box.innerHTML = rt + " ms";
+
+    stimTime = null;
+    setTimeout(nextTrial, 1000);
+  }
+}
+
+document.addEventListener("click", handleResponse);
+
+document.addEventListener("touchstart", function(e) {
+  e.preventDefault();
+  handleResponse();
+}, { passive: false });
+
+function finishTask() {
+  running = false;
+  clearTimeout(timeoutId);
+
+  const valid = data.filter(d => d.response_type === "valid");
+  const falseStarts = data.filter(d => d.response_type === "false_start").length;
+  const lapses = valid.filter(d => d.lapse === 1).length;
+
+  const meanRT = valid.length
+    ? Math.round(valid.reduce((sum, d) => sum + d.rt_ms, 0) / valid.length)
+    : 0;
+
+  const totalTrials = data.length;
+  const correctTrials = data.filter(d => d.correct === 1).length;
+  const accuracy = totalTrials
+    ? Math.round((correctTrials / totalTrials) * 1000) / 10
+    : 0;
+
+  document.getElementById("box").style.background = "#222";
+  document.getElementById("box").innerHTML = "完成";
+
+  document.getElementById("status").innerHTML = "";
+
+  document.getElementById("summary").innerHTML =
+    "任務完成<br>" +
+    "正確率：" + accuracy + "%<br>" +
+    "平均反應時間：" + meanRT + " ms<br>" +
+    "Lapse 次數（RT ≥ 500 ms）：" + lapses + "<br>" +
+    "過早點擊次數：" + falseStarts + "<br><br>" +
+    "<button onclick='downloadCSV()'>下載 CSV</button>";
+}
+
+function downloadCSV() {
+  const header = [
+    "subject_id",
+    "trial",
+    "wait_ms",
+    "rt_ms",
+    "response_type",
+    "correct",
+    "lapse",
+    "timestamp_ms"
+  ];
+
+  let csv = header.join(",") + "\n";
+
+  data.forEach(d => {
+    csv += header.map(h => d[h]).join(",") + "\n";
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const subjectId = document.getElementById("subjectId").value || "subject";
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = subjectId + "_pvt_result.csv";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
 </script>
 
 </body>
