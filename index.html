@@ -13,7 +13,7 @@
       --ink: #17212b;
       --muted: #536171;
       --accent: #1f5eff;
-      --danger: #d63b3b;
+      --danger: #c73636;
       --box-bg: #ffffff;
       --shadow: 0 20px 50px rgba(23, 33, 43, 0.14);
     }
@@ -52,22 +52,17 @@
       line-height: 1.15;
     }
 
-    .subtitle {
+    .instructions {
       margin: 0 auto 24px;
       max-width: 760px;
-      font-size: clamp(1.15rem, 2vw, 1.5rem);
-      line-height: 1.8;
+      padding: 22px 24px;
+      border-radius: 20px;
       color: #000;
     }
 
     .instructions {
-      margin: 0 auto 28px;
-      max-width: 760px;
-      padding: 22px 24px;
-      border-radius: 20px;
       background: #f8fbff;
       border: 2px solid #dce6f5;
-      color: #000;
     }
 
     .instructions h2 {
@@ -79,6 +74,10 @@
       margin: 8px 0;
       font-size: clamp(1.1rem, 2vw, 1.5rem);
       line-height: 1.8;
+    }
+
+    .subtitle {
+      margin: 0 0 14px;
     }
 
     .controls {
@@ -132,10 +131,10 @@
 
     .metrics {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
       gap: 14px;
       margin: 0 auto 28px;
-      max-width: 760px;
+      max-width: 320px;
     }
 
     .metric {
@@ -168,7 +167,6 @@
       color: #000;
       box-shadow: inset 0 0 0 3px #d7dee8;
       user-select: none;
-      transition: transform 0.2s ease;
     }
 
     .stimulus-text {
@@ -193,13 +191,6 @@
       color: var(--danger);
     }
 
-    .hint {
-      margin: 0 0 20px;
-      font-size: clamp(1rem, 2vw, 1.25rem);
-      color: var(--muted);
-      line-height: 1.8;
-    }
-
     @media (max-width: 720px) {
       body {
         padding: 14px;
@@ -215,10 +206,6 @@
 
       .field {
         flex-direction: column;
-      }
-
-      .metrics {
-        grid-template-columns: 1fr;
       }
 
       button,
@@ -254,20 +241,12 @@
 
     <section class="metrics">
       <div class="metric">
-        <div class="metric-label">已完成題數</div>
-        <div class="metric-value" id="trialCount">0</div>
-      </div>
-      <div class="metric">
         <div class="metric-label">剩餘時間</div>
         <div class="metric-value" id="timeLeft">05:00</div>
       </div>
-      <div class="metric">
-        <div class="metric-label">目前狀態</div>
-        <div class="metric-value" id="modeLabel">尚未開始</div>
-      </div>
     </section>
 
-    <div class="stimulus-box" id="box">
+    <div class="stimulus-box">
       <div class="stimulus-text" id="stimulusText"></div>
     </div>
 
@@ -278,8 +257,8 @@
     const LETTERS = ["A", "C", "D", "F", "H", "K", "M", "Q", "X"];
     const TARGET = "X";
     const TARGET_RATIO = 0.2;
-    const MIN_TRIAL_TIME_MS = 1000;
-    const MAX_TRIAL_TIME_MS = 1300;
+    const STIMULUS_DISPLAY_MS = 150;
+    const STIMULUS_ONSET_INTERVAL_MS = 1300;
 
     let running = false;
     let paused = false;
@@ -296,23 +275,25 @@
     let pausedTrialTotalMs = 0;
     let pauseStartedAt = 0;
     let stimulusActive = false;
+    let stimulusVisible = false;
     let currentStimulus = "";
     let responseCaptured = false;
 
     let trialTimeoutId = null;
     let trialTimeoutRemainingMs = 0;
     let trialTimeoutStartedAt = 0;
+    let hideStimulusTimeoutId = null;
+    let hideStimulusRemainingMs = 0;
+    let hideStimulusStartedAt = 0;
     let countdownIntervalId = null;
     let nextTrialTimeoutId = null;
+    let preStartCountdownId = null;
 
     const startBtn = document.getElementById("startBtn");
     const subjectIdInput = document.getElementById("subjectId");
     const durationMinutesInput = document.getElementById("durationMinutes");
-    const trialCount = document.getElementById("trialCount");
     const timeLeft = document.getElementById("timeLeft");
-    const modeLabel = document.getElementById("modeLabel");
     const status = document.getElementById("status");
-    const box = document.getElementById("box");
     const stimulusText = document.getElementById("stimulusText");
 
     function formatDuration(ms) {
@@ -326,6 +307,7 @@
       if (!running) {
         return taskDurationMs;
       }
+
       const now = paused ? pauseStartedAt : performance.now();
       const elapsed = now - taskStartPerf - pausedTaskTotalMs;
       return Math.max(0, taskDurationMs - elapsed);
@@ -333,14 +315,6 @@
 
     function updateTimeLeft() {
       timeLeft.textContent = formatDuration(remainingTaskMs());
-    }
-
-    function updateProgress() {
-      trialCount.textContent = String(trialIndex);
-    }
-
-    function setMode(text) {
-      modeLabel.textContent = text;
     }
 
     function setStatus(text, tone = "muted") {
@@ -359,10 +333,6 @@
         : nontargets[Math.floor(Math.random() * nontargets.length)];
     }
 
-    function randomTrialDuration() {
-      return Math.floor(Math.random() * (MAX_TRIAL_TIME_MS - MIN_TRIAL_TIME_MS + 1)) + MIN_TRIAL_TIME_MS;
-    }
-
     function resetTrialTimer() {
       if (trialTimeoutId !== null) {
         clearTimeout(trialTimeoutId);
@@ -377,6 +347,28 @@
       trialTimeoutRemainingMs = durationMs;
       trialTimeoutStartedAt = performance.now();
       trialTimeoutId = setTimeout(finalizeCurrentTrial, durationMs);
+    }
+
+    function resetHideStimulusTimer() {
+      if (hideStimulusTimeoutId !== null) {
+        clearTimeout(hideStimulusTimeoutId);
+      }
+      hideStimulusTimeoutId = null;
+      hideStimulusRemainingMs = 0;
+      hideStimulusStartedAt = 0;
+    }
+
+    function hideCurrentStimulus() {
+      stimulusVisible = false;
+      setBoxState("");
+      resetHideStimulusTimer();
+    }
+
+    function startHideStimulusTimer(durationMs) {
+      resetHideStimulusTimer();
+      hideStimulusRemainingMs = durationMs;
+      hideStimulusStartedAt = performance.now();
+      hideStimulusTimeoutId = setTimeout(hideCurrentStimulus, durationMs);
     }
 
     function resetNextTrialTimer() {
@@ -404,10 +396,45 @@
       }, 250);
     }
 
+    function resetPreStartCountdown() {
+      if (preStartCountdownId !== null) {
+        clearTimeout(preStartCountdownId);
+      }
+      preStartCountdownId = null;
+    }
+
+    function beginTaskAfterCountdown(secondsLeft) {
+      if (!running || finished) {
+        return;
+      }
+
+      if (secondsLeft > 0) {
+        setStatus(`請準備，${secondsLeft} 秒後開始。`);
+        setBoxState(String(secondsLeft));
+        preStartCountdownId = setTimeout(() => {
+          beginTaskAfterCountdown(secondsLeft - 1);
+        }, 1000);
+        return;
+      }
+
+      resetPreStartCountdown();
+      setStatus("開始作答，只有看到 X 才按 SPACE。");
+      setBoxState("");
+      startCountdown();
+      showNextTrial();
+    }
+
     function startTask() {
       const minutes = Number(durationMinutesInput.value);
       if (!Number.isFinite(minutes) || minutes <= 0) {
         alert("請輸入大於 0 的測驗時間。");
+        return;
+      }
+
+      const confirmed = window.confirm(
+        "開始前警告：\n請確認受試者已準備好，並在測驗期間專心看著螢幕中央，不要切換視窗或分心做其他事情。\n\n按下「確定」才會正式開始測驗。"
+      );
+      if (!confirmed) {
         return;
       }
 
@@ -421,15 +448,14 @@
       pauseStartedAt = 0;
       taskDurationMs = minutes * 60 * 1000;
       taskStartPerf = performance.now();
+
       startBtn.disabled = true;
       subjectIdInput.disabled = true;
       durationMinutesInput.disabled = true;
-      updateProgress();
+
       updateTimeLeft();
-      setMode("測驗進行中");
-      setStatus("請準備，只有看到 X 才按 SPACE。");
-      startCountdown();
-      showNextTrial();
+      resetPreStartCountdown();
+      beginTaskAfterCountdown(3);
     }
 
     function showNextTrial() {
@@ -440,16 +466,18 @@
       currentStimulus = pickStimulus();
       responseCaptured = false;
       stimulusActive = true;
+      stimulusVisible = true;
       pausedTrialTotalMs = 0;
       trialStartPerf = performance.now();
       trialStartIso = new Date().toISOString();
 
       trialIndex += 1;
-      updateProgress();
-      setMode("請判斷字母");
       setBoxState(currentStimulus);
-      setStatus("如果現在是 X，請立刻按 SPACE。");
-      startTrialTimer(Math.min(randomTrialDuration(), remainingTaskMs()));
+      setStatus("只有看到 X 才按 SPACE。");
+
+      const trialDurationMs = Math.min(STIMULUS_ONSET_INTERVAL_MS, remainingTaskMs());
+      startTrialTimer(trialDurationMs);
+      startHideStimulusTimer(Math.min(STIMULUS_DISPLAY_MS, trialDurationMs));
     }
 
     function finalizeCurrentTrial() {
@@ -458,6 +486,8 @@
       }
 
       stimulusActive = false;
+      stimulusVisible = false;
+
       const isTarget = currentStimulus === TARGET;
       let correct = false;
       let errorType = "";
@@ -498,11 +528,13 @@
       } else if (isTarget) {
         setStatus("漏答：看到 X 但沒有按 SPACE。", "danger");
       } else {
-        setStatus("這題已結束。", "muted");
+        setStatus("本次刺激已完成。", "muted");
       }
 
       resetTrialTimer();
+      resetHideStimulusTimer();
       resetNextTrialTimer();
+      setBoxState("");
 
       if (remainingTaskMs() <= 0) {
         finishTask(false);
@@ -519,7 +551,6 @@
       if (!paused) {
         paused = true;
         pauseStartedAt = performance.now();
-        setMode("已暫停");
         setStatus("測驗已暫停，再按一次 P 可繼續。");
 
         if (trialTimeoutId !== null) {
@@ -527,6 +558,13 @@
           trialTimeoutRemainingMs = Math.max(0, trialTimeoutRemainingMs - elapsed);
           clearTimeout(trialTimeoutId);
           trialTimeoutId = null;
+        }
+
+        if (hideStimulusTimeoutId !== null) {
+          const elapsed = performance.now() - hideStimulusStartedAt;
+          hideStimulusRemainingMs = Math.max(0, hideStimulusRemainingMs - elapsed);
+          clearTimeout(hideStimulusTimeoutId);
+          hideStimulusTimeoutId = null;
         }
 
         resetNextTrialTimer();
@@ -539,12 +577,14 @@
       pausedTaskTotalMs += pausedDuration;
       pausedTrialTotalMs += pausedDuration;
       pauseStartedAt = 0;
-      setMode("測驗進行中");
 
       if (stimulusActive) {
-        setStatus("測驗已繼續，請留意目前字母。");
+        setStatus("測驗已繼續，請留意目前刺激。");
         if (trialTimeoutRemainingMs > 0) {
           startTrialTimer(Math.min(trialTimeoutRemainingMs, remainingTaskMs()));
+        }
+        if (stimulusVisible && hideStimulusRemainingMs > 0) {
+          startHideStimulusTimer(Math.min(hideStimulusRemainingMs, remainingTaskMs()));
         }
       } else {
         setStatus("測驗已繼續。");
@@ -563,12 +603,14 @@
       paused = false;
       finished = true;
       stimulusActive = false;
+      stimulusVisible = false;
       resetTrialTimer();
+      resetHideStimulusTimer();
       resetNextTrialTimer();
+      resetPreStartCountdown();
       stopCountdown();
       updateTimeLeft();
 
-      setMode(triggeredByEsc ? "已結束並輸出" : "測驗完成");
       setBoxState("");
       setStatus(triggeredByEsc ? "已依照 ESC 指令結束並下載 CSV。" : "測驗完成，結果已自動下載為 CSV。");
 
@@ -673,6 +715,7 @@
     }
 
     startBtn.addEventListener("click", startTask);
+
     document.addEventListener("keydown", event => {
       if (event.code === "Space") {
         if (running && !paused && stimulusActive && !responseCaptured) {
@@ -700,6 +743,7 @@
     });
 
     updateTimeLeft();
+    setBoxState("");
   </script>
 </body>
 </html>
