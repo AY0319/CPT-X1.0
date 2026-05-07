@@ -1,442 +1,705 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PVT-B 任務</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPT-X 測驗</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg-start: #f3efe2;
+      --bg-end: #dce8f1;
+      --panel: rgba(255, 255, 255, 0.94);
+      --ink: #17212b;
+      --muted: #536171;
+      --accent: #1f5eff;
+      --danger: #d63b3b;
+      --box-bg: #ffffff;
+      --shadow: 0 20px 50px rgba(23, 33, 43, 0.14);
+    }
 
-<style>
-body {
-  font-family: Arial, "Microsoft JhengHei", sans-serif;
-  text-align: center;
-  background: #f5f5f5;
-  margin: 0;
-}
+    * {
+      box-sizing: border-box;
+    }
 
-#container {
-  max-width: 850px;
-  margin: 40px auto;
-  padding: 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 36%),
+        linear-gradient(135deg, var(--bg-start), var(--bg-end));
+    }
 
-#box {
-  width: 260px;
-  height: 260px;
-  margin: 70px auto;
-  background: #c93434;
-  border-radius: 20px;
-  color: white;
-  font-size: 42px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-}
+    .app {
+      width: min(980px, 100%);
+      padding: 40px;
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
 
-button {
-  font-size: 20px;
-  padding: 10px 24px;
-  margin: 8px;
-}
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2.4rem, 4vw, 3.4rem);
+      line-height: 1.15;
+    }
 
-input {
-  font-size: 18px;
-  padding: 6px;
-  width: 120px;
-}
+    .subtitle {
+      margin: 0 auto 24px;
+      max-width: 760px;
+      font-size: clamp(1.15rem, 2vw, 1.5rem);
+      line-height: 1.8;
+      color: #000;
+    }
 
-#countdown {
-  font-size: 28px;
-  font-weight: bold;
-  margin-top: 20px;
-  color: #333;
-}
+    .instructions {
+      margin: 0 auto 28px;
+      max-width: 760px;
+      padding: 22px 24px;
+      border-radius: 20px;
+      background: #f8fbff;
+      border: 2px solid #dce6f5;
+      color: #000;
+    }
 
-#status {
-  font-size: 20px;
-  min-height: 32px;
-}
+    .instructions h2 {
+      margin: 0 0 14px;
+      font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+    }
 
-#summary {
-  font-size: 20px;
-  line-height: 1.8;
-}
+    .instructions p {
+      margin: 8px 0;
+      font-size: clamp(1.1rem, 2vw, 1.5rem);
+      line-height: 1.8;
+    }
 
-#hint {
-  color: #666;
-  font-size: 16px;
-}
-</style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 16px 20px;
+      margin-bottom: 24px;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    input {
+      width: 180px;
+      padding: 12px 16px;
+      border: 2px solid #c8d4e4;
+      border-radius: 14px;
+      font-size: 1.3rem;
+      text-align: center;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 15px 28px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: var(--accent);
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 0 auto 28px;
+      max-width: 760px;
+    }
+
+    .metric {
+      padding: 18px 16px;
+      border-radius: 18px;
+      background: #f6f8fb;
+      border: 2px solid #e1e8f0;
+    }
+
+    .metric-label {
+      font-size: 1.05rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 800;
+    }
+
+    .stimulus-box {
+      width: min(380px, 78vw);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto 22px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--box-bg);
+      color: #000;
+      box-shadow: inset 0 0 0 3px #d7dee8;
+      user-select: none;
+      transition: transform 0.2s ease;
+    }
+
+    .stimulus-text {
+      font-size: clamp(4.5rem, 12vw, 8rem);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      color: #000;
+    }
+
+    .status {
+      min-height: 54px;
+      margin: 0 0 18px;
+      font-size: clamp(1.3rem, 2.6vw, 1.8rem);
+      font-weight: 700;
+    }
+
+    .status.muted {
+      color: var(--muted);
+    }
+
+    .status.danger {
+      color: var(--danger);
+    }
+
+    .hint {
+      margin: 0 0 20px;
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 14px;
+      }
+
+      .app {
+        padding: 24px 18px;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .field {
+        flex-direction: column;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      button,
+      input {
+        width: min(100%, 300px);
+      }
+    }
+  </style>
 </head>
-
 <body>
+  <main class="app">
+    <h1>CPT-X 持續性注意力測驗</h1>
 
-<div id="container">
-  <h2>PVT-B 反應時間任務</h2>
+    <section class="instructions">
+      <h2>操作說明</h2>
+      <p class="subtitle">看到字母 <strong>X</strong> 時請按下空白鍵；看到其他字母時請不要按任何鍵。</p>
+      <p>SPACE：作答</p>
+      <p>P：暫停 / 繼續</p>
+      <p>ESC：直接結束測驗並輸出 CSV</p>
+    </section>
 
-  <p>等待藍色刺激出現後，盡快點擊畫面或觸碰螢幕。</p>
-  <p>任務進行中可按 <strong>P</strong> 暫停或繼續。</p>
+    <section class="controls">
+      <label class="field" for="subjectId">
+        受試者編號
+        <input id="subjectId" type="text" value="S01">
+      </label>
+      <label class="field" for="durationMinutes">
+        測驗時間（分鐘）
+        <input id="durationMinutes" type="number" min="1" step="1" value="5">
+      </label>
+      <button id="startBtn" type="button">開始測驗</button>
+    </section>
 
-  <label for="subjectId">受試者編號</label>
-  <input id="subjectId" value="S01" type="text">
+    <section class="metrics">
+      <div class="metric">
+        <div class="metric-label">已完成題數</div>
+        <div class="metric-value" id="trialCount">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">剩餘時間</div>
+        <div class="metric-value" id="timeLeft">05:00</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">目前狀態</div>
+        <div class="metric-value" id="modeLabel">尚未開始</div>
+      </div>
+    </section>
 
-  <br><br>
+    <div class="stimulus-box" id="box">
+      <div class="stimulus-text" id="stimulusText"></div>
+    </div>
 
-  <label for="time">任務時間（分鐘）</label>
-  <input id="time" value="15" type="number" min="1">
+    <p class="status muted" id="status">按下「開始測驗」後，請用空白鍵作答。</p>
+  </main>
 
-  <br><br>
+  <script>
+    const LETTERS = ["A", "C", "D", "F", "H", "K", "M", "Q", "X"];
+    const TARGET = "X";
+    const TARGET_RATIO = 0.2;
+    const MIN_TRIAL_TIME_MS = 1000;
+    const MAX_TRIAL_TIME_MS = 1300;
 
-  <button id="startBtn" onclick="startTask()">開始任務</button>
-  <button id="pauseBtn" onclick="togglePause()" disabled>暫停</button>
+    let running = false;
+    let paused = false;
+    let finished = false;
+    let trialIndex = 0;
+    let results = [];
 
-  <div id="countdown">剩餘時間：15:00</div>
+    let taskStartPerf = 0;
+    let taskDurationMs = 0;
+    let pausedTaskTotalMs = 0;
 
-  <div id="box">等待開始</div>
+    let trialStartPerf = 0;
+    let trialStartIso = "";
+    let pausedTrialTotalMs = 0;
+    let pauseStartedAt = 0;
+    let stimulusActive = false;
+    let currentStimulus = "";
+    let responseCaptured = false;
 
-  <p id="status"></p>
-  <p id="hint">滑鼠點擊、觸控，或按空白鍵都可回應刺激。</p>
-  <div id="summary"></div>
-</div>
+    let trialTimeoutId = null;
+    let trialTimeoutRemainingMs = 0;
+    let trialTimeoutStartedAt = 0;
+    let countdownIntervalId = null;
+    let nextTrialTimeoutId = null;
 
-<script>
-let running = false;
-let paused = false;
-let taskStartTime = 0;
-let taskDuration = 0;
-let pausedTotalMs = 0;
-let pauseStartedAt = 0;
-
-let trial = 0;
-let data = [];
-
-let waitStartTime = null;
-let stimTime = null;
-let waitingForStimulus = false;
-
-let timeoutId = null;
-let timeoutStartedAt = 0;
-let timeoutDurationMs = 0;
-let timeoutRemainingMs = 0;
-let timeoutCallback = null;
-let countdownTimer = null;
-
-const MIN_WAIT_MS = 2000;
-const MAX_WAIT_MS = 10000;
-const FEEDBACK_MS = 1000;
-const LAPSE_THRESHOLD_MS = 500;
-
-function randomWait() {
-  return Math.floor(Math.random() * (MAX_WAIT_MS - MIN_WAIT_MS + 1)) + MIN_WAIT_MS;
-}
-
-function setManagedTimeout(callback, durationMs) {
-  clearManagedTimeout();
-  timeoutCallback = callback;
-  timeoutDurationMs = durationMs;
-  timeoutRemainingMs = durationMs;
-  timeoutStartedAt = performance.now();
-  timeoutId = setTimeout(() => {
-    clearManagedTimeout();
-    callback();
-  }, durationMs);
-}
-
-function clearManagedTimeout() {
-  if (timeoutId !== null) {
-    clearTimeout(timeoutId);
-  }
-  timeoutId = null;
-  timeoutStartedAt = 0;
-  timeoutDurationMs = 0;
-  timeoutRemainingMs = 0;
-  timeoutCallback = null;
-}
-
-function formatDuration(ms) {
-  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
-}
-
-function elapsedTaskMs() {
-  if (!running) return 0;
-  const now = paused ? pauseStartedAt : performance.now();
-  return now - taskStartTime - pausedTotalMs;
-}
-
-function remainingTaskMs() {
-  return Math.max(0, taskDuration - elapsedTaskMs());
-}
-
-function updateCountdown() {
-  document.getElementById("countdown").textContent = "剩餘時間：" + formatDuration(remainingTaskMs());
-}
-
-function startTask() {
-  const minutes = Number(document.getElementById("time").value);
-  if (!Number.isFinite(minutes) || minutes <= 0) {
-    alert("請輸入大於 0 的分鐘數。");
-    return;
-  }
-
-  running = true;
-  paused = false;
-  pausedTotalMs = 0;
-  pauseStartedAt = 0;
-  trial = 0;
-  data = [];
-  waitStartTime = null;
-  stimTime = null;
-  waitingForStimulus = false;
-
-  taskDuration = minutes * 60 * 1000;
-  taskStartTime = performance.now();
-
-  document.getElementById("startBtn").style.display = "none";
-  document.getElementById("pauseBtn").disabled = false;
-  document.getElementById("pauseBtn").textContent = "暫停";
-  document.getElementById("summary").innerHTML = "";
-  document.getElementById("status").textContent = "";
-
-  updateCountdown();
-  startCountdown();
-  nextTrial();
-}
-
-function startCountdown() {
-  if (countdownTimer !== null) {
-    clearInterval(countdownTimer);
-  }
-
-  countdownTimer = setInterval(() => {
-    updateCountdown();
-    if (running && !paused && remainingTaskMs() <= 0) {
-      finishTask();
-    }
-  }, 250);
-}
-
-function nextTrial() {
-  if (!running || paused) return;
-
-  if (remainingTaskMs() <= 0) {
-    finishTask();
-    return;
-  }
-
-  trial += 1;
-  stimTime = null;
-  waitingForStimulus = true;
-  waitStartTime = performance.now();
-
-  const box = document.getElementById("box");
-  box.style.background = "#c93434";
-  box.textContent = "等待中";
-  document.getElementById("status").textContent = "請等待刺激出現";
-
-  setManagedTimeout(() => {
-    if (!running || paused) return;
-
-    stimTime = performance.now();
-    waitingForStimulus = false;
-    box.style.background = "#2d6cdf";
-    box.textContent = "現在點擊";
-    document.getElementById("status").textContent = "請立刻反應";
-  }, randomWait());
-}
-
-function scheduleNextTrial(delayMs) {
-  setManagedTimeout(() => {
-    nextTrial();
-  }, delayMs);
-}
-
-function handleResponse() {
-  if (!running || paused) return;
-
-  const now = performance.now();
-  const subjectId = document.getElementById("subjectId").value || "subject";
-
-  if (waitingForStimulus) {
-    clearManagedTimeout();
-
-    data.push({
-      subject_id: subjectId,
-      trial: trial,
-      wait_ms: "",
-      rt_ms: "",
-      response_type: "false_start",
-      correct: 0,
-      lapse: 0,
-      timestamp_ms: Math.round(now)
-    });
-
+    const startBtn = document.getElementById("startBtn");
+    const subjectIdInput = document.getElementById("subjectId");
+    const durationMinutesInput = document.getElementById("durationMinutes");
+    const trialCount = document.getElementById("trialCount");
+    const timeLeft = document.getElementById("timeLeft");
+    const modeLabel = document.getElementById("modeLabel");
+    const status = document.getElementById("status");
     const box = document.getElementById("box");
-    box.style.background = "#444";
-    box.textContent = "太早了";
-    document.getElementById("status").textContent = "這次屬於過早反應";
+    const stimulusText = document.getElementById("stimulusText");
 
-    scheduleNextTrial(FEEDBACK_MS);
-    return;
-  }
-
-  if (stimTime !== null) {
-    const rt = Math.round(now - stimTime);
-    const waitMs = Math.round(stimTime - waitStartTime);
-    const lapse = rt >= LAPSE_THRESHOLD_MS ? 1 : 0;
-
-    data.push({
-      subject_id: subjectId,
-      trial: trial,
-      wait_ms: waitMs,
-      rt_ms: rt,
-      response_type: "valid",
-      correct: 1,
-      lapse: lapse,
-      timestamp_ms: Math.round(stimTime)
-    });
-
-    const box = document.getElementById("box");
-    box.style.background = "#333";
-    box.textContent = rt + " ms";
-    document.getElementById("status").textContent = "反應時間：" + rt + " ms";
-
-    stimTime = null;
-    scheduleNextTrial(FEEDBACK_MS);
-  }
-}
-
-function togglePause() {
-  if (!running) return;
-
-  const pauseBtn = document.getElementById("pauseBtn");
-  const box = document.getElementById("box");
-
-  if (!paused) {
-    paused = true;
-    pauseStartedAt = performance.now();
-
-    if (timeoutId !== null) {
-      const elapsed = performance.now() - timeoutStartedAt;
-      timeoutRemainingMs = Math.max(0, timeoutDurationMs - elapsed);
-      clearTimeout(timeoutId);
-      timeoutId = null;
+    function formatDuration(ms) {
+      const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
     }
 
-    box.style.background = "#666";
-    box.textContent = "已暫停";
-    document.getElementById("status").textContent = "按 P 或按鈕繼續";
-    pauseBtn.textContent = "繼續";
-    return;
-  }
+    function remainingTaskMs() {
+      if (!running) {
+        return taskDurationMs;
+      }
+      const now = paused ? pauseStartedAt : performance.now();
+      const elapsed = now - taskStartPerf - pausedTaskTotalMs;
+      return Math.max(0, taskDurationMs - elapsed);
+    }
 
-  paused = false;
-  pausedTotalMs += performance.now() - pauseStartedAt;
-  pauseStartedAt = 0;
-  pauseBtn.textContent = "暫停";
+    function updateTimeLeft() {
+      timeLeft.textContent = formatDuration(remainingTaskMs());
+    }
 
-  if (timeoutCallback && timeoutRemainingMs > 0) {
-    const resumeCallback = timeoutCallback;
-    const remainingMs = timeoutRemainingMs;
-    timeoutId = setTimeout(() => {
-      clearManagedTimeout();
-      resumeCallback();
-    }, remainingMs);
-    timeoutStartedAt = performance.now();
-    timeoutDurationMs = remainingMs;
-  } else if (stimTime !== null) {
-    box.style.background = "#2d6cdf";
-    box.textContent = "現在點擊";
-    document.getElementById("status").textContent = "請立刻反應";
-  } else {
-    box.style.background = "#c93434";
-    box.textContent = "等待中";
-    document.getElementById("status").textContent = "請等待刺激出現";
-  }
-}
+    function updateProgress() {
+      trialCount.textContent = String(trialIndex);
+    }
 
-function finishTask() {
-  running = false;
-  paused = false;
-  clearManagedTimeout();
+    function setMode(text) {
+      modeLabel.textContent = text;
+    }
 
-  if (countdownTimer !== null) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
-  }
+    function setStatus(text, tone = "muted") {
+      status.textContent = text;
+      status.className = `status ${tone}`;
+    }
 
-  document.getElementById("box").style.background = "#222";
-  document.getElementById("box").textContent = "已完成";
-  document.getElementById("countdown").textContent = "剩餘時間：00:00";
-  document.getElementById("status").textContent = "";
-  document.getElementById("pauseBtn").disabled = true;
+    function setBoxState(text) {
+      stimulusText.textContent = text;
+    }
 
-  document.getElementById("summary").innerHTML =
-    "<button onclick='downloadCSV()'>下載 CSV</button>";
-}
+    function pickStimulus() {
+      const nontargets = LETTERS.filter(letter => letter !== TARGET);
+      return Math.random() < TARGET_RATIO
+        ? TARGET
+        : nontargets[Math.floor(Math.random() * nontargets.length)];
+    }
 
-function downloadCSV() {
-  const header = [
-    "subject_id",
-    "trial",
-    "wait_ms",
-    "rt_ms",
-    "response_type",
-    "correct",
-    "lapse",
-    "timestamp_ms"
-  ];
+    function randomTrialDuration() {
+      return Math.floor(Math.random() * (MAX_TRIAL_TIME_MS - MIN_TRIAL_TIME_MS + 1)) + MIN_TRIAL_TIME_MS;
+    }
 
-  let csv = header.join(",") + "\n";
+    function resetTrialTimer() {
+      if (trialTimeoutId !== null) {
+        clearTimeout(trialTimeoutId);
+      }
+      trialTimeoutId = null;
+      trialTimeoutRemainingMs = 0;
+      trialTimeoutStartedAt = 0;
+    }
 
-  data.forEach(d => {
-    csv += header.map(h => d[h]).join(",") + "\n";
-  });
+    function startTrialTimer(durationMs) {
+      resetTrialTimer();
+      trialTimeoutRemainingMs = durationMs;
+      trialTimeoutStartedAt = performance.now();
+      trialTimeoutId = setTimeout(finalizeCurrentTrial, durationMs);
+    }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const subjectId = document.getElementById("subjectId").value || "subject";
+    function resetNextTrialTimer() {
+      if (nextTrialTimeoutId !== null) {
+        clearTimeout(nextTrialTimeoutId);
+      }
+      nextTrialTimeoutId = null;
+    }
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = subjectId + "_pvt_result.csv";
-  a.click();
+    function stopCountdown() {
+      if (countdownIntervalId !== null) {
+        clearInterval(countdownIntervalId);
+      }
+      countdownIntervalId = null;
+    }
 
-  URL.revokeObjectURL(url);
-}
+    function startCountdown() {
+      stopCountdown();
+      updateTimeLeft();
+      countdownIntervalId = setInterval(() => {
+        updateTimeLeft();
+        if (running && !paused && remainingTaskMs() <= 0) {
+          finishTask(false);
+        }
+      }, 250);
+    }
 
-document.addEventListener("click", function(event) {
-  if (event.target.tagName === "BUTTON") return;
-  handleResponse();
-});
+    function startTask() {
+      const minutes = Number(durationMinutesInput.value);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        alert("請輸入大於 0 的測驗時間。");
+        return;
+      }
 
-document.addEventListener("touchstart", function(event) {
-  if (event.target.tagName === "BUTTON") return;
-  event.preventDefault();
-  handleResponse();
-}, { passive: false });
+      running = true;
+      paused = false;
+      finished = false;
+      trialIndex = 0;
+      results = [];
+      pausedTaskTotalMs = 0;
+      pausedTrialTotalMs = 0;
+      pauseStartedAt = 0;
+      taskDurationMs = minutes * 60 * 1000;
+      taskStartPerf = performance.now();
+      startBtn.disabled = true;
+      subjectIdInput.disabled = true;
+      durationMinutesInput.disabled = true;
+      updateProgress();
+      updateTimeLeft();
+      setMode("測驗進行中");
+      setStatus("請準備，只有看到 X 才按 SPACE。");
+      startCountdown();
+      showNextTrial();
+    }
 
-document.addEventListener("keydown", function(event) {
-  if (event.key === "p" || event.key === "P") {
-    event.preventDefault();
-    togglePause();
-    return;
-  }
+    function showNextTrial() {
+      if (!running || paused || remainingTaskMs() <= 0) {
+        return;
+      }
 
-  if (event.code === "Space") {
-    event.preventDefault();
-    handleResponse();
-  }
-});
+      currentStimulus = pickStimulus();
+      responseCaptured = false;
+      stimulusActive = true;
+      pausedTrialTotalMs = 0;
+      trialStartPerf = performance.now();
+      trialStartIso = new Date().toISOString();
 
-updateCountdown();
-</script>
+      trialIndex += 1;
+      updateProgress();
+      setMode("請判斷字母");
+      setBoxState(currentStimulus);
+      setStatus("如果現在是 X，請立刻按 SPACE。");
+      startTrialTimer(Math.min(randomTrialDuration(), remainingTaskMs()));
+    }
 
+    function finalizeCurrentTrial() {
+      if (!running || paused || !stimulusActive) {
+        return;
+      }
+
+      stimulusActive = false;
+      const isTarget = currentStimulus === TARGET;
+      let correct = false;
+      let errorType = "";
+      let rtMs = "";
+
+      if (responseCaptured) {
+        rtMs = Number((performance.now() - trialStartPerf - pausedTrialTotalMs).toFixed(2));
+      }
+
+      if (isTarget && responseCaptured) {
+        correct = true;
+        errorType = "hit";
+      } else if (isTarget && !responseCaptured) {
+        correct = false;
+        errorType = "omission";
+      } else if (!isTarget && responseCaptured) {
+        correct = false;
+        errorType = "commission";
+      } else {
+        correct = true;
+        errorType = "correct_rejection";
+      }
+
+      results.push({
+        trial: trialIndex,
+        stimulus: currentStimulus,
+        is_target: isTarget,
+        response: responseCaptured,
+        rt_ms: rtMs,
+        correct: correct,
+        error_type: errorType,
+        paused: pausedTrialTotalMs > 0,
+        trial_start_time: trialStartIso
+      });
+
+      if (responseCaptured) {
+        setStatus(`已記錄反應時間：${rtMs} ms`, correct ? "muted" : "danger");
+      } else if (isTarget) {
+        setStatus("漏答：看到 X 但沒有按 SPACE。", "danger");
+      } else {
+        setStatus("這題已結束。", "muted");
+      }
+
+      resetTrialTimer();
+      resetNextTrialTimer();
+
+      if (remainingTaskMs() <= 0) {
+        finishTask(false);
+      } else {
+        nextTrialTimeoutId = setTimeout(showNextTrial, 0);
+      }
+    }
+
+    function togglePause() {
+      if (!running || finished) {
+        return;
+      }
+
+      if (!paused) {
+        paused = true;
+        pauseStartedAt = performance.now();
+        setMode("已暫停");
+        setStatus("測驗已暫停，再按一次 P 可繼續。");
+
+        if (trialTimeoutId !== null) {
+          const elapsed = performance.now() - trialTimeoutStartedAt;
+          trialTimeoutRemainingMs = Math.max(0, trialTimeoutRemainingMs - elapsed);
+          clearTimeout(trialTimeoutId);
+          trialTimeoutId = null;
+        }
+
+        resetNextTrialTimer();
+        updateTimeLeft();
+        return;
+      }
+
+      paused = false;
+      const pausedDuration = performance.now() - pauseStartedAt;
+      pausedTaskTotalMs += pausedDuration;
+      pausedTrialTotalMs += pausedDuration;
+      pauseStartedAt = 0;
+      setMode("測驗進行中");
+
+      if (stimulusActive) {
+        setStatus("測驗已繼續，請留意目前字母。");
+        if (trialTimeoutRemainingMs > 0) {
+          startTrialTimer(Math.min(trialTimeoutRemainingMs, remainingTaskMs()));
+        }
+      } else {
+        setStatus("測驗已繼續。");
+        nextTrialTimeoutId = setTimeout(showNextTrial, 200);
+      }
+
+      updateTimeLeft();
+    }
+
+    function finishTask(triggeredByEsc) {
+      if (finished) {
+        return;
+      }
+
+      running = false;
+      paused = false;
+      finished = true;
+      stimulusActive = false;
+      resetTrialTimer();
+      resetNextTrialTimer();
+      stopCountdown();
+      updateTimeLeft();
+
+      setMode(triggeredByEsc ? "已結束並輸出" : "測驗完成");
+      setBoxState("");
+      setStatus(triggeredByEsc ? "已依照 ESC 指令結束並下載 CSV。" : "測驗完成，結果已自動下載為 CSV。");
+
+      startBtn.disabled = false;
+      subjectIdInput.disabled = false;
+      durationMinutesInput.disabled = false;
+
+      downloadCSV();
+    }
+
+    function calculateSummary() {
+      const total = results.length;
+      const targets = results.filter(row => row.is_target);
+      const nontargets = results.filter(row => !row.is_target);
+      const hits = results.filter(row => row.error_type === "hit");
+      const omissions = results.filter(row => row.error_type === "omission");
+      const commissions = results.filter(row => row.error_type === "commission");
+      const correctRejections = results.filter(row => row.error_type === "correct_rejection");
+      const rtValues = hits.map(row => Number(row.rt_ms)).filter(value => Number.isFinite(value));
+
+      const meanRt = rtValues.length
+        ? rtValues.reduce((sum, value) => sum + value, 0) / rtValues.length
+        : 0;
+
+      const sdRt = rtValues.length > 1
+        ? Math.sqrt(rtValues.reduce((sum, value) => sum + (value - meanRt) ** 2, 0) / (rtValues.length - 1))
+        : 0;
+
+      const firstHalf = results.slice(0, Math.floor(total / 2));
+      const secondHalf = results.slice(Math.floor(total / 2));
+
+      function blockMeanRt(block) {
+        const values = block
+          .filter(row => row.error_type === "hit" && row.rt_ms !== "")
+          .map(row => Number(row.rt_ms));
+        return values.length
+          ? values.reduce((sum, value) => sum + value, 0) / values.length
+          : 0;
+      }
+
+      return {
+        completedTrials: total,
+        hitCount: hits.length,
+        omissionCount: omissions.length,
+        commissionCount: commissions.length,
+        correctRejectionCount: correctRejections.length,
+        accuracy: total ? (hits.length + correctRejections.length) / total : 0,
+        omissionRate: targets.length ? omissions.length / targets.length : 0,
+        commissionRate: nontargets.length ? commissions.length / nontargets.length : 0,
+        meanRtMs: meanRt,
+        rtSdMs: sdRt,
+        firstHalfMeanRtMs: blockMeanRt(firstHalf),
+        secondHalfMeanRtMs: blockMeanRt(secondHalf)
+      };
+    }
+
+    function downloadCSV() {
+      if (!results.length) {
+        return;
+      }
+
+      const subjectId = subjectIdInput.value.trim() || "subject";
+      const summaryData = calculateSummary();
+      const headers = [
+        "trial",
+        "stimulus",
+        "is_target",
+        "response",
+        "rt_ms",
+        "correct",
+        "error_type",
+        "paused",
+        "trial_start_time"
+      ];
+
+      const csvRows = [headers.join(",")];
+      results.forEach(row => {
+        csvRows.push(headers.map(header => row[header]).join(","));
+      });
+      csvRows.push("");
+      csvRows.push("summary_item,value");
+      csvRows.push(`completed_trials,${summaryData.completedTrials}`);
+      csvRows.push(`hit_count,${summaryData.hitCount}`);
+      csvRows.push(`omission_count,${summaryData.omissionCount}`);
+      csvRows.push(`commission_count,${summaryData.commissionCount}`);
+      csvRows.push(`correct_rejection_count,${summaryData.correctRejectionCount}`);
+      csvRows.push(`mean_rt_ms,${summaryData.meanRtMs.toFixed(2)}`);
+      csvRows.push(`rt_sd_ms,${summaryData.rtSdMs.toFixed(2)}`);
+      csvRows.push(`first_half_mean_rt_ms,${summaryData.firstHalfMeanRtMs.toFixed(2)}`);
+      csvRows.push(`second_half_mean_rt_ms,${summaryData.secondHalfMeanRtMs.toFixed(2)}`);
+      csvRows.push(`accuracy,${(summaryData.accuracy * 100).toFixed(2)}%`);
+      csvRows.push(`omission_rate,${(summaryData.omissionRate * 100).toFixed(2)}%`);
+      csvRows.push(`commission_rate,${(summaryData.commissionRate * 100).toFixed(2)}%`);
+
+      const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${subjectId}_cptx_result.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    startBtn.addEventListener("click", startTask);
+    document.addEventListener("keydown", event => {
+      if (event.code === "Space") {
+        if (running && !paused && stimulusActive && !responseCaptured) {
+          event.preventDefault();
+          responseCaptured = true;
+          setStatus("已收到 SPACE，正在記錄作答。");
+        }
+        return;
+      }
+
+      if (event.key === "p" || event.key === "P") {
+        if (running && !finished) {
+          event.preventDefault();
+          togglePause();
+        }
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (running && !finished) {
+          event.preventDefault();
+          finishTask(true);
+        }
+      }
+    });
+
+    updateTimeLeft();
+  </script>
 </body>
 </html>
