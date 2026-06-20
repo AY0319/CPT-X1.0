@@ -113,23 +113,6 @@
       cursor: not-allowed;
     }
 
-    .metrics {
-      margin: 0 auto 22px;
-      max-width: 320px;
-      padding: 14px 16px;
-      border-radius: 18px;
-      background: #f6f8fb;
-      border: 2px solid #e1e8f0;
-      font-weight: 800;
-      font-size: 1.8rem;
-    }
-
-    .metric-label {
-      font-size: 1rem;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-
     .stimulus-box {
       width: min(380px, 78vw);
       aspect-ratio: 1 / 1;
@@ -188,11 +171,6 @@
       <button id="startBtn" type="button">開始測驗</button>
     </section>
 
-    <section class="metrics">
-      <div class="metric-label">剩餘時間</div>
-      <div id="timeLeft">15:00</div>
-    </section>
-
     <div class="stimulus-box">
       <div class="stimulus-text" id="stimulusText"></div>
     </div>
@@ -244,23 +222,11 @@
     const startBtn = document.getElementById("startBtn");
     const subjectIdInput = document.getElementById("subjectId");
     const durationMinutesInput = document.getElementById("durationMinutes");
-    const timeLeft = document.getElementById("timeLeft");
     const status = document.getElementById("status");
     const stimulusText = document.getElementById("stimulusText");
 
     function pickSOA() {
       return SOA_MIN_MS + Math.random() * (SOA_MAX_MS - SOA_MIN_MS);
-    }
-
-    function formatDuration(ms) {
-      const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-    }
-
-    function updateTimeLeft() {
-      timeLeft.textContent = formatDuration(remainingTaskMs());
     }
 
     function remainingTaskMs() {
@@ -328,10 +294,8 @@
 
     function startCountdown() {
       stopCountdown();
-      updateTimeLeft();
       countdownIntervalId = setInterval(() => {
-        updateTimeLeft();
-        if (running && !paused && remainingTaskMs() <= 0) finishTask(false);
+          if (running && !paused && remainingTaskMs() <= 0) finishTask(false);
       }, 250);
     }
 
@@ -386,7 +350,6 @@
       subjectIdInput.disabled = true;
       durationMinutesInput.disabled = true;
 
-      updateTimeLeft();
       resetPreStartCountdown();
       beginTaskAfterCountdown(3);
     }
@@ -490,8 +453,7 @@
         }
 
         resetNextTrialTimer();
-        updateTimeLeft();
-        return;
+          return;
       }
 
       paused = false;
@@ -509,7 +471,6 @@
         nextTrialTimeoutId = setTimeout(showNextTrial, 200);
       }
 
-      updateTimeLeft();
     }
 
     function finishTask(triggeredByEsc) {
@@ -527,7 +488,6 @@
       resetPreStartCountdown();
       stopCountdown();
 
-      updateTimeLeft();
       setBoxState("");
       setStatus(triggeredByEsc ? "已依照 ESC 指令結束並下載 CSV。" : "測驗完成，結果已自動下載為 CSV。");
 
