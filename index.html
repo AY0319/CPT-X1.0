@@ -30,7 +30,7 @@
       font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 36%),
+        radial-gradient(circle at top left, rgba(255,255,255,0.9), transparent 36%),
         linear-gradient(135deg, var(--bg-start), var(--bg-end));
     }
 
@@ -41,13 +41,11 @@
       background: var(--panel);
       box-shadow: var(--shadow);
       text-align: center;
-      backdrop-filter: blur(12px);
     }
 
     h1 {
       margin: 0 0 12px;
       font-size: clamp(2.4rem, 4vw, 3.4rem);
-      line-height: 1.15;
     }
 
     .instructions {
@@ -55,9 +53,9 @@
       max-width: 760px;
       padding: 22px 24px;
       border-radius: 20px;
-      color: #000;
       background: #f8fbff;
       border: 2px solid #dce6f5;
+      color: #000;
     }
 
     .instructions h2 {
@@ -115,32 +113,6 @@
       cursor: not-allowed;
     }
 
-    .metrics {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 14px;
-      margin: 0 auto 28px;
-      max-width: 320px;
-    }
-
-    .metric {
-      padding: 18px 16px;
-      border-radius: 18px;
-      background: #f6f8fb;
-      border: 2px solid #e1e8f0;
-    }
-
-    .metric-label {
-      font-size: 1.05rem;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .metric-value {
-      font-size: clamp(1.5rem, 3vw, 2.2rem);
-      font-weight: 800;
-    }
-
     .stimulus-box {
       width: min(380px, 78vw);
       aspect-ratio: 1 / 1;
@@ -150,7 +122,6 @@
       align-items: center;
       justify-content: center;
       background: var(--box-bg);
-      color: #000;
       box-shadow: inset 0 0 0 3px #d7dee8;
       user-select: none;
     }
@@ -194,17 +165,10 @@
 
       <label class="field" for="durationMinutes">
         測驗時間（分鐘）
-        <input id="durationMinutes" type="number" min="1" step="1" value="15">
+        <input id="durationMinutes" type="number" min="0.1" step="0.1" value="15">
       </label>
 
       <button id="startBtn" type="button">開始測驗</button>
-    </section>
-
-    <section class="metrics">
-      <div class="metric">
-        <div class="metric-label">剩餘時間</div>
-        <div class="metric-value" id="timeLeft">15:00</div>
-      </div>
     </section>
 
     <div class="stimulus-box">
@@ -218,13 +182,9 @@
     const LETTERS = ["A", "C", "D", "F", "H", "K", "M", "Q", "X"];
     const TARGET = "X";
 
-    // 建議：0.15 或 0.20
     const TARGET_RATIO = 0.15;
-
-    // 字母顯示時間
     const STIMULUS_DISPLAY_MS = 150;
 
-    // 隨機 SOA：刺激起始間隔
     const SOA_MIN_MS = 1000;
     const SOA_MAX_MS = 2000;
 
@@ -263,7 +223,6 @@
     const startBtn = document.getElementById("startBtn");
     const subjectIdInput = document.getElementById("subjectId");
     const durationMinutesInput = document.getElementById("durationMinutes");
-    const timeLeft = document.getElementById("timeLeft");
     const status = document.getElementById("status");
     const stimulusText = document.getElementById("stimulusText");
 
@@ -271,22 +230,11 @@
       return SOA_MIN_MS + Math.random() * (SOA_MAX_MS - SOA_MIN_MS);
     }
 
-    function formatDuration(ms) {
-      const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-    }
-
     function remainingTaskMs() {
       if (!running) return taskDurationMs;
       const now = paused ? pauseStartedAt : performance.now();
       const elapsed = now - taskStartPerf - pausedTaskTotalMs;
       return Math.max(0, taskDurationMs - elapsed);
-    }
-
-    function updateTimeLeft() {
-      timeLeft.textContent = formatDuration(remainingTaskMs());
     }
 
     function setStatus(text, tone = "muted") {
@@ -347,10 +295,7 @@
 
     function startCountdown() {
       stopCountdown();
-      updateTimeLeft();
-
       countdownIntervalId = setInterval(() => {
-        updateTimeLeft();
         if (running && !paused && remainingTaskMs() <= 0) {
           finishTask(false);
         }
@@ -400,6 +345,7 @@
       finished = false;
       trialIndex = 0;
       results = [];
+
       pausedTaskTotalMs = 0;
       pausedTrialTotalMs = 0;
       pauseStartedAt = 0;
@@ -411,7 +357,6 @@
       subjectIdInput.disabled = true;
       durationMinutesInput.disabled = true;
 
-      updateTimeLeft();
       resetPreStartCountdown();
       beginTaskAfterCountdown(3);
     }
@@ -421,10 +366,12 @@
 
       currentStimulus = pickStimulus();
       currentSOA = pickSOA();
+
       responseCaptured = false;
       stimulusActive = true;
       stimulusVisible = true;
       pausedTrialTotalMs = 0;
+
       trialStartPerf = performance.now();
       trialStartIso = new Date().toISOString();
 
@@ -520,12 +467,12 @@
         }
 
         resetNextTrialTimer();
-        updateTimeLeft();
         return;
       }
 
       paused = false;
       const pausedDuration = performance.now() - pauseStartedAt;
+
       pausedTaskTotalMs += pausedDuration;
       pausedTrialTotalMs += pausedDuration;
       pauseStartedAt = 0;
@@ -544,8 +491,6 @@
         setStatus("測驗已繼續。");
         nextTrialTimeoutId = setTimeout(showNextTrial, 200);
       }
-
-      updateTimeLeft();
     }
 
     function finishTask(triggeredByEsc) {
@@ -562,7 +507,6 @@
       resetNextTrialTimer();
       resetPreStartCountdown();
       stopCountdown();
-      updateTimeLeft();
 
       setBoxState("");
       setStatus(triggeredByEsc ? "已依照 ESC 指令結束並下載 CSV。" : "測驗完成，結果已自動下載為 CSV。");
@@ -769,7 +713,6 @@
       }
     });
 
-    updateTimeLeft();
     setBoxState("");
   </script>
 </body>
