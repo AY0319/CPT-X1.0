@@ -239,13 +239,6 @@
       <button id="startBtn" type="button">開始測驗</button>
     </section>
 
-    <section class="metrics">
-      <div class="metric">
-        <div class="metric-label">剩餘時間</div>
-        <div class="metric-value" id="timeLeft">05:00</div>
-      </div>
-    </section>
-
     <div class="stimulus-box">
       <div class="stimulus-text" id="stimulusText"></div>
     </div>
@@ -256,10 +249,15 @@
   <script>
     const LETTERS = ["A", "C", "D", "F", "H", "K", "M", "Q", "X"];
     const TARGET = "X";
-    const TARGET_RATIO = 0.2;
+    const TARGET_RATIO = 0.15;
     const STIMULUS_DISPLAY_MS = 150;
-    const STIMULUS_ONSET_INTERVAL_MS = 1300;
+    const SOA_MIN_MS = 1000;
+    const SOA_MAX_MS = 2000;
 
+    function pickSOA() {
+    return SOA_MIN_MS + Math.random() * (SOA_MAX_MS - SOA_MIN_MS);
+    }
+    
     let running = false;
     let paused = false;
     let finished = false;
@@ -475,7 +473,7 @@
       setBoxState(currentStimulus);
       setStatus("只有看到 X 才按 SPACE。");
 
-      const trialDurationMs = Math.min(STIMULUS_ONSET_INTERVAL_MS, remainingTaskMs());
+      const trialDurationMs = Math.min(pickSOA(), remainingTaskMs());
       startTrialTimer(trialDurationMs);
       startHideStimulusTimer(Math.min(STIMULUS_DISPLAY_MS, trialDurationMs));
     }
