@@ -18,9 +18,7 @@
       --shadow: 0 20px 50px rgba(23, 33, 43, 0.14);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -58,9 +56,6 @@
       padding: 22px 24px;
       border-radius: 20px;
       color: #000;
-    }
-
-    .instructions {
       background: #f8fbff;
       border: 2px solid #dce6f5;
     }
@@ -74,10 +69,6 @@
       margin: 8px 0;
       font-size: clamp(1.1rem, 2vw, 1.5rem);
       line-height: 1.8;
-    }
-
-    .subtitle {
-      margin: 0 0 14px;
     }
 
     .controls {
@@ -117,11 +108,6 @@
       cursor: pointer;
       color: #fff;
       background: var(--accent);
-      transition: transform 0.15s ease, opacity 0.15s ease;
-    }
-
-    button:hover:not(:disabled) {
-      transform: translateY(-1px);
     }
 
     button:disabled {
@@ -183,45 +169,18 @@
       font-weight: 700;
     }
 
-    .status.muted {
-      color: var(--muted);
-    }
-
-    .status.danger {
-      color: var(--danger);
-    }
-
-    @media (max-width: 720px) {
-      body {
-        padding: 14px;
-      }
-
-      .app {
-        padding: 24px 18px;
-      }
-
-      .controls {
-        flex-direction: column;
-      }
-
-      .field {
-        flex-direction: column;
-      }
-
-      button,
-      input {
-        width: min(100%, 300px);
-      }
-    }
+    .status.muted { color: var(--muted); }
+    .status.danger { color: var(--danger); }
   </style>
 </head>
+
 <body>
   <main class="app">
     <h1>CPT-X 持續性注意力測驗</h1>
 
     <section class="instructions">
       <h2>操作說明</h2>
-      <p class="subtitle">看到字母 <strong>X</strong> 時請按下空白鍵；看到其他字母時請不要按任何鍵。</p>
+      <p>看到字母 <strong>X</strong> 時請按下空白鍵；看到其他字母時請不要按任何鍵。</p>
       <p>SPACE：作答</p>
       <p>P：暫停 / 繼續</p>
       <p>ESC：直接結束測驗並輸出 CSV</p>
@@ -232,11 +191,20 @@
         受試者編號
         <input id="subjectId" type="text" value="S01">
       </label>
+
       <label class="field" for="durationMinutes">
         測驗時間（分鐘）
-        <input id="durationMinutes" type="number" min="1" step="1" value="5">
+        <input id="durationMinutes" type="number" min="1" step="1" value="15">
       </label>
+
       <button id="startBtn" type="button">開始測驗</button>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <div class="metric-label">剩餘時間</div>
+        <div class="metric-value" id="timeLeft">15:00</div>
+      </div>
     </section>
 
     <div class="stimulus-box">
@@ -249,15 +217,17 @@
   <script>
     const LETTERS = ["A", "C", "D", "F", "H", "K", "M", "Q", "X"];
     const TARGET = "X";
+
+    // 建議：0.15 或 0.20
     const TARGET_RATIO = 0.15;
+
+    // 字母顯示時間
     const STIMULUS_DISPLAY_MS = 150;
+
+    // 隨機 SOA：刺激起始間隔
     const SOA_MIN_MS = 1000;
     const SOA_MAX_MS = 2000;
 
-    function pickSOA() {
-    return SOA_MIN_MS + Math.random() * (SOA_MAX_MS - SOA_MIN_MS);
-    }
-    
     let running = false;
     let paused = false;
     let finished = false;
@@ -272,20 +242,23 @@
     let trialStartIso = "";
     let pausedTrialTotalMs = 0;
     let pauseStartedAt = 0;
+
     let stimulusActive = false;
     let stimulusVisible = false;
     let currentStimulus = "";
+    let currentSOA = 0;
     let responseCaptured = false;
 
     let trialTimeoutId = null;
-    let trialTimeoutRemainingMs = 0;
-    let trialTimeoutStartedAt = 0;
     let hideStimulusTimeoutId = null;
-    let hideStimulusRemainingMs = 0;
-    let hideStimulusStartedAt = 0;
     let countdownIntervalId = null;
     let nextTrialTimeoutId = null;
     let preStartCountdownId = null;
+
+    let trialTimeoutRemainingMs = 0;
+    let trialTimeoutStartedAt = 0;
+    let hideStimulusRemainingMs = 0;
+    let hideStimulusStartedAt = 0;
 
     const startBtn = document.getElementById("startBtn");
     const subjectIdInput = document.getElementById("subjectId");
@@ -293,6 +266,10 @@
     const timeLeft = document.getElementById("timeLeft");
     const status = document.getElementById("status");
     const stimulusText = document.getElementById("stimulusText");
+
+    function pickSOA() {
+      return SOA_MIN_MS + Math.random() * (SOA_MAX_MS - SOA_MIN_MS);
+    }
 
     function formatDuration(ms) {
       const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
@@ -302,10 +279,7 @@
     }
 
     function remainingTaskMs() {
-      if (!running) {
-        return taskDurationMs;
-      }
-
+      if (!running) return taskDurationMs;
       const now = paused ? pauseStartedAt : performance.now();
       const elapsed = now - taskStartPerf - pausedTaskTotalMs;
       return Math.max(0, taskDurationMs - elapsed);
@@ -332,12 +306,8 @@
     }
 
     function resetTrialTimer() {
-      if (trialTimeoutId !== null) {
-        clearTimeout(trialTimeoutId);
-      }
+      if (trialTimeoutId !== null) clearTimeout(trialTimeoutId);
       trialTimeoutId = null;
-      trialTimeoutRemainingMs = 0;
-      trialTimeoutStartedAt = 0;
     }
 
     function startTrialTimer(durationMs) {
@@ -348,12 +318,8 @@
     }
 
     function resetHideStimulusTimer() {
-      if (hideStimulusTimeoutId !== null) {
-        clearTimeout(hideStimulusTimeoutId);
-      }
+      if (hideStimulusTimeoutId !== null) clearTimeout(hideStimulusTimeoutId);
       hideStimulusTimeoutId = null;
-      hideStimulusRemainingMs = 0;
-      hideStimulusStartedAt = 0;
     }
 
     function hideCurrentStimulus() {
@@ -370,22 +336,19 @@
     }
 
     function resetNextTrialTimer() {
-      if (nextTrialTimeoutId !== null) {
-        clearTimeout(nextTrialTimeoutId);
-      }
+      if (nextTrialTimeoutId !== null) clearTimeout(nextTrialTimeoutId);
       nextTrialTimeoutId = null;
     }
 
     function stopCountdown() {
-      if (countdownIntervalId !== null) {
-        clearInterval(countdownIntervalId);
-      }
+      if (countdownIntervalId !== null) clearInterval(countdownIntervalId);
       countdownIntervalId = null;
     }
 
     function startCountdown() {
       stopCountdown();
       updateTimeLeft();
+
       countdownIntervalId = setInterval(() => {
         updateTimeLeft();
         if (running && !paused && remainingTaskMs() <= 0) {
@@ -395,16 +358,12 @@
     }
 
     function resetPreStartCountdown() {
-      if (preStartCountdownId !== null) {
-        clearTimeout(preStartCountdownId);
-      }
+      if (preStartCountdownId !== null) clearTimeout(preStartCountdownId);
       preStartCountdownId = null;
     }
 
     function beginTaskAfterCountdown(secondsLeft) {
-      if (!running || finished) {
-        return;
-      }
+      if (!running || finished) return;
 
       if (secondsLeft > 0) {
         setStatus(`請準備，${secondsLeft} 秒後開始。`);
@@ -424,17 +383,17 @@
 
     function startTask() {
       const minutes = Number(durationMinutesInput.value);
+
       if (!Number.isFinite(minutes) || minutes <= 0) {
         alert("請輸入大於 0 的測驗時間。");
         return;
       }
 
       const confirmed = window.confirm(
-        "開始前警告：\n請確認受試者已準備好，並在測驗期間專心看著螢幕中央，不要切換視窗或分心做其他事情。\n\n按下「確定」才會正式開始測驗。"
+        "開始前確認：\n請確認受試者已準備好，測驗期間請專心看著螢幕中央。\n\n按下「確定」後開始測驗。"
       );
-      if (!confirmed) {
-        return;
-      }
+
+      if (!confirmed) return;
 
       running = true;
       paused = false;
@@ -444,6 +403,7 @@
       pausedTaskTotalMs = 0;
       pausedTrialTotalMs = 0;
       pauseStartedAt = 0;
+
       taskDurationMs = minutes * 60 * 1000;
       taskStartPerf = performance.now();
 
@@ -457,11 +417,10 @@
     }
 
     function showNextTrial() {
-      if (!running || paused || remainingTaskMs() <= 0) {
-        return;
-      }
+      if (!running || paused || remainingTaskMs() <= 0) return;
 
       currentStimulus = pickStimulus();
+      currentSOA = pickSOA();
       responseCaptured = false;
       stimulusActive = true;
       stimulusVisible = true;
@@ -470,18 +429,18 @@
       trialStartIso = new Date().toISOString();
 
       trialIndex += 1;
+
       setBoxState(currentStimulus);
       setStatus("只有看到 X 才按 SPACE。");
 
-      const trialDurationMs = Math.min(pickSOA(), remainingTaskMs());
+      const trialDurationMs = Math.min(currentSOA, remainingTaskMs());
+
       startTrialTimer(trialDurationMs);
       startHideStimulusTimer(Math.min(STIMULUS_DISPLAY_MS, trialDurationMs));
     }
 
     function finalizeCurrentTrial() {
-      if (!running || paused || !stimulusActive) {
-        return;
-      }
+      if (!running || paused || !stimulusActive) return;
 
       stimulusActive = false;
       stimulusVisible = false;
@@ -509,25 +468,22 @@
         errorType = "correct_rejection";
       }
 
+      const elapsedTaskMs = performance.now() - taskStartPerf - pausedTaskTotalMs;
+      const minuteBin = Math.floor(elapsedTaskMs / 60000) + 1;
+
       results.push({
         trial: trialIndex,
+        minute_bin: minuteBin,
         stimulus: currentStimulus,
         is_target: isTarget,
         response: responseCaptured,
         rt_ms: rtMs,
         correct: correct,
         error_type: errorType,
+        soa_ms: Number(currentSOA.toFixed(2)),
         paused: pausedTrialTotalMs > 0,
         trial_start_time: trialStartIso
       });
-
-      if (responseCaptured) {
-        setStatus(`已記錄反應時間：${rtMs} ms`, correct ? "muted" : "danger");
-      } else if (isTarget) {
-        setStatus("漏答：看到 X 但沒有按 SPACE。", "danger");
-      } else {
-        setStatus("本次刺激已完成。", "muted");
-      }
 
       resetTrialTimer();
       resetHideStimulusTimer();
@@ -542,9 +498,7 @@
     }
 
     function togglePause() {
-      if (!running || finished) {
-        return;
-      }
+      if (!running || finished) return;
 
       if (!paused) {
         paused = true;
@@ -577,10 +531,12 @@
       pauseStartedAt = 0;
 
       if (stimulusActive) {
-        setStatus("測驗已繼續，請留意目前刺激。");
+        setStatus("測驗已繼續。");
+
         if (trialTimeoutRemainingMs > 0) {
           startTrialTimer(Math.min(trialTimeoutRemainingMs, remainingTaskMs()));
         }
+
         if (stimulusVisible && hideStimulusRemainingMs > 0) {
           startHideStimulusTimer(Math.min(hideStimulusRemainingMs, remainingTaskMs()));
         }
@@ -593,15 +549,14 @@
     }
 
     function finishTask(triggeredByEsc) {
-      if (finished) {
-        return;
-      }
+      if (finished) return;
 
       running = false;
       paused = false;
       finished = true;
       stimulusActive = false;
       stimulusVisible = false;
+
       resetTrialTimer();
       resetHideStimulusTimer();
       resetNextTrialTimer();
@@ -619,6 +574,17 @@
       downloadCSV();
     }
 
+    function mean(values) {
+      if (!values.length) return 0;
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    }
+
+    function sd(values) {
+      if (values.length <= 1) return 0;
+      const m = mean(values);
+      return Math.sqrt(values.reduce((sum, value) => sum + (value - m) ** 2, 0) / (values.length - 1));
+    }
+
     function calculateSummary() {
       const total = results.length;
       const targets = results.filter(row => row.is_target);
@@ -627,15 +593,10 @@
       const omissions = results.filter(row => row.error_type === "omission");
       const commissions = results.filter(row => row.error_type === "commission");
       const correctRejections = results.filter(row => row.error_type === "correct_rejection");
-      const rtValues = hits.map(row => Number(row.rt_ms)).filter(value => Number.isFinite(value));
 
-      const meanRt = rtValues.length
-        ? rtValues.reduce((sum, value) => sum + value, 0) / rtValues.length
-        : 0;
-
-      const sdRt = rtValues.length > 1
-        ? Math.sqrt(rtValues.reduce((sum, value) => sum + (value - meanRt) ** 2, 0) / (rtValues.length - 1))
-        : 0;
+      const rtValues = hits
+        .map(row => Number(row.rt_ms))
+        .filter(value => Number.isFinite(value));
 
       const firstHalf = results.slice(0, Math.floor(total / 2));
       const secondHalf = results.slice(Math.floor(total / 2));
@@ -644,13 +605,13 @@
         const values = block
           .filter(row => row.error_type === "hit" && row.rt_ms !== "")
           .map(row => Number(row.rt_ms));
-        return values.length
-          ? values.reduce((sum, value) => sum + value, 0) / values.length
-          : 0;
+        return mean(values);
       }
 
       return {
         completedTrials: total,
+        targetCount: targets.length,
+        nontargetCount: nontargets.length,
         hitCount: hits.length,
         omissionCount: omissions.length,
         commissionCount: commissions.length,
@@ -658,39 +619,83 @@
         accuracy: total ? (hits.length + correctRejections.length) / total : 0,
         omissionRate: targets.length ? omissions.length / targets.length : 0,
         commissionRate: nontargets.length ? commissions.length / nontargets.length : 0,
-        meanRtMs: meanRt,
-        rtSdMs: sdRt,
+        meanRtMs: mean(rtValues),
+        rtSdMs: sd(rtValues),
         firstHalfMeanRtMs: blockMeanRt(firstHalf),
         secondHalfMeanRtMs: blockMeanRt(secondHalf)
       };
     }
 
+    function calculateMinuteSummary() {
+      const bins = {};
+
+      results.forEach(row => {
+        if (!bins[row.minute_bin]) bins[row.minute_bin] = [];
+        bins[row.minute_bin].push(row);
+      });
+
+      return Object.keys(bins).map(minute => {
+        const block = bins[minute];
+        const targets = block.filter(row => row.is_target);
+        const nontargets = block.filter(row => !row.is_target);
+        const hits = block.filter(row => row.error_type === "hit");
+        const omissions = block.filter(row => row.error_type === "omission");
+        const commissions = block.filter(row => row.error_type === "commission");
+        const correctRejections = block.filter(row => row.error_type === "correct_rejection");
+
+        const rtValues = hits
+          .map(row => Number(row.rt_ms))
+          .filter(value => Number.isFinite(value));
+
+        return {
+          minute: minute,
+          trial_count: block.length,
+          target_count: targets.length,
+          hit_count: hits.length,
+          omission_count: omissions.length,
+          commission_count: commissions.length,
+          correct_rejection_count: correctRejections.length,
+          mean_rt_ms: mean(rtValues),
+          sd_rt_ms: sd(rtValues),
+          accuracy: block.length ? (hits.length + correctRejections.length) / block.length : 0,
+          omission_rate: targets.length ? omissions.length / targets.length : 0,
+          commission_rate: nontargets.length ? commissions.length / nontargets.length : 0
+        };
+      });
+    }
+
     function downloadCSV() {
-      if (!results.length) {
-        return;
-      }
+      if (!results.length) return;
 
       const subjectId = subjectIdInput.value.trim() || "subject";
       const summaryData = calculateSummary();
+      const minuteSummary = calculateMinuteSummary();
+
       const headers = [
         "trial",
+        "minute_bin",
         "stimulus",
         "is_target",
         "response",
         "rt_ms",
         "correct",
         "error_type",
+        "soa_ms",
         "paused",
         "trial_start_time"
       ];
 
       const csvRows = [headers.join(",")];
+
       results.forEach(row => {
         csvRows.push(headers.map(header => row[header]).join(","));
       });
+
       csvRows.push("");
       csvRows.push("summary_item,value");
       csvRows.push(`completed_trials,${summaryData.completedTrials}`);
+      csvRows.push(`target_count,${summaryData.targetCount}`);
+      csvRows.push(`nontarget_count,${summaryData.nontargetCount}`);
       csvRows.push(`hit_count,${summaryData.hitCount}`);
       csvRows.push(`omission_count,${summaryData.omissionCount}`);
       csvRows.push(`commission_count,${summaryData.commissionCount}`);
@@ -703,7 +708,31 @@
       csvRows.push(`omission_rate,${(summaryData.omissionRate * 100).toFixed(2)}%`);
       csvRows.push(`commission_rate,${(summaryData.commissionRate * 100).toFixed(2)}%`);
 
-      const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      csvRows.push("");
+      csvRows.push("minute_summary");
+      csvRows.push("minute,trial_count,target_count,hit_count,omission_count,commission_count,correct_rejection_count,mean_rt_ms,sd_rt_ms,accuracy,omission_rate,commission_rate");
+
+      minuteSummary.forEach(row => {
+        csvRows.push([
+          row.minute,
+          row.trial_count,
+          row.target_count,
+          row.hit_count,
+          row.omission_count,
+          row.commission_count,
+          row.correct_rejection_count,
+          row.mean_rt_ms.toFixed(2),
+          row.sd_rt_ms.toFixed(2),
+          (row.accuracy * 100).toFixed(2) + "%",
+          (row.omission_rate * 100).toFixed(2) + "%",
+          (row.commission_rate * 100).toFixed(2) + "%"
+        ].join(","));
+      });
+
+      const blob = new Blob(["\uFEFF" + csvRows.join("\n")], {
+        type: "text/csv;charset=utf-8;"
+      });
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -719,7 +748,7 @@
         if (running && !paused && stimulusActive && !responseCaptured) {
           event.preventDefault();
           responseCaptured = true;
-          setStatus("已收到 SPACE，正在記錄作答。");
+          setStatus("已收到 SPACE。");
         }
         return;
       }
